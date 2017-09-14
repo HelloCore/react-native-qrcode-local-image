@@ -74,7 +74,7 @@ public class RCTQRCodeLocalImage extends ReactContextBaseJavaModule {
             options.inSampleSize = sampleSize;
             Bitmap scanBitmap = null;
             if (path.startsWith("http://")||path.startsWith("https://")) {
-                scanBitmap = this.getbitmap("https://instagram.fmvd1-1.fna.fbcdn.net/t51.2885-15/e35/18722826_1379673005443137_1152886071126654976_n.jpg");
+                scanBitmap = this.getbitmap(path);
             } else {
                 scanBitmap = BitmapFactory.decodeFile(realPath, options);
             }
@@ -84,12 +84,9 @@ public class RCTQRCodeLocalImage extends ReactContextBaseJavaModule {
                 return;
             }
 
-            Bitmap scanInvertBitmap = invert(scanBitmap);
-            // https://code.tutsplus.com/tutorials/reading-qr-codes-using-the-mobile-vision-api--cms-24680
-
-            int[] intArray = new int[scanInvertBitmap.getWidth()*scanInvertBitmap.getHeight()];
-            scanInvertBitmap.getPixels(intArray, 0, scanInvertBitmap.getWidth(), 0, 0, scanInvertBitmap.getWidth(), scanInvertBitmap.getHeight());
-            LuminanceSource source = new RGBLuminanceSource(scanInvertBitmap.getWidth(), scanInvertBitmap.getHeight(), intArray);
+            int[] intArray = new int[scanBitmap.getWidth()*scanBitmap.getHeight()];
+            scanBitmap.getPixels(intArray, 0, scanBitmap.getWidth(), 0, 0, scanBitmap.getWidth(), scanBitmap.getHeight());
+            LuminanceSource source = new RGBLuminanceSource(scanBitmap.getWidth(), scanBitmap.getHeight(), intArray);
             BinaryBitmap bitmap = new BinaryBitmap(new HybridBinarizer(source));
             QRCodeReader reader = new QRCodeReader();
 
