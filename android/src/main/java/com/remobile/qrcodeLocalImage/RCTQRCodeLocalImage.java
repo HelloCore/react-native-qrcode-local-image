@@ -41,9 +41,7 @@ public class RCTQRCodeLocalImage extends ReactContextBaseJavaModule {
 
     private ReactApplicationContext mReactContext;
 
-    private static final int RGB_MASK = 0x00FFFFFF;
-
-    public RCTQRCodeLocalImage(ReactApplicationContext reactContext) {
+    RCTQRCodeLocalImage(ReactApplicationContext reactContext) {
         super(reactContext);
         mReactContext = reactContext;
     }
@@ -60,29 +58,21 @@ public class RCTQRCodeLocalImage extends ReactContextBaseJavaModule {
         try {
             Uri mediaUri = Uri.parse(path);
             String realPath = getRealPathFromUri(mReactContext, mediaUri);
-            Hashtable<DecodeHintType, String> hints = new Hashtable<DecodeHintType, String>();
-            hints.put(DecodeHintType.CHARACTER_SET, "utf-8"); // 设置二维码内容的编码
 
-            BitmapFactory.Options options = new BitmapFactory.Options();
-            options.inJustDecodeBounds = true; // 先获取原大小
-            options.inJustDecodeBounds = false; // 获取新的大小
-
-            int sampleSize = (int) (options.outHeight / (float) 200);
-
-            if (sampleSize <= 0)
-                sampleSize = 1;
-            options.inSampleSize = sampleSize;
-            Bitmap scanBitmap = null;
+            Bitmap scanBitmap;
             if (path.startsWith("http://")||path.startsWith("https://")) {
-                scanBitmap = this.getbitmap(path);
+                scanBitmap = this.decodeNetworkBitmap(path);
             } else {
-                scanBitmap = BitmapFactory.decodeFile(realPath, options);
+                scanBitmap = this.decodeLocalBitmap(realPath);
             }
 
             if (scanBitmap == null) {
                 callback.invoke("cannot load image");
                 return;
             }
+
+            Hashtable<DecodeHintType, String> hints = new Hashtable<>();
+            hints.put(DecodeHintType.CHARACTER_SET, "utf-8"); // 设置二维码内容的编码
 
             int[] intArray = new int[scanBitmap.getWidth()*scanBitmap.getHeight()];
             scanBitmap.getPixels(intArray, 0, scanBitmap.getWidth(), 0, 0, scanBitmap.getWidth(), scanBitmap.getHeight());
@@ -93,12 +83,7 @@ public class RCTQRCodeLocalImage extends ReactContextBaseJavaModule {
             try {
                 Result result = reader.decode(bitmap, hints);
                 Log.d(TAG, "result - " + result);
-                if (result == null) {
-                    callback.invoke("Image without qr");
-                } else {
-                    callback.invoke(null, result.toString());
-                }
-
+                callback.invoke(null, result.toString());
             } catch (Exception e) {
                 Log.d(TAG, "Error - " + e);
                 callback.invoke("Decode error");
@@ -109,30 +94,8 @@ public class RCTQRCodeLocalImage extends ReactContextBaseJavaModule {
         }
     }
 
-    public Bitmap invert(Bitmap original) {
-        // Create mutable Bitmap to invert, argument true makes it mutable
-        Bitmap inversion = original.copy(Bitmap.Config.ARGB_8888, true);
-
-        // Get info about Bitmap
-        int width = inversion.getWidth();
-        int height = inversion.getHeight();
-        int pixels = width * height;
-
-        // Get original pixels
-        int[] pixel = new int[pixels];
-        inversion.getPixels(pixel, 0, width, 0, 0, width, height);
-
-        // Modify pixels
-        for (int i = 0; i < pixels; i++)
-            pixel[i] ^= RGB_MASK;
-        inversion.setPixels(pixel, 0, width, 0, 0, width, height);
-        // Return inverted Bitmap
-//        saveImage(inversion, "caro");
-        return inversion;
-    }
-
-    public static Bitmap getbitmap(String imageUri) {
-        Bitmap bitmap = null;
+    private Bitmap decodeNetworkBitmap(String imageUri) {
+        Bitmap bitmap;
         try {
             URL myFileUrl = new URL(imageUri);
             HttpURLConnection conn = (HttpURLConnection) myFileUrl.openConnection();
@@ -152,32 +115,26 @@ public class RCTQRCodeLocalImage extends ReactContextBaseJavaModule {
         return bitmap;
     }
 
-//    private void saveImage(Bitmap finalBitmap, String image_name) {
-//
-//        // Find the SD Card path
-//        File filepath = Environment.getExternalStorageDirectory();
-//
-//        // Create a new folder in SD Card
-//        File myDir = new File(filepath.getAbsolutePath()
-//                + "/WhatSappIMG/");
-//        myDir.mkdirs();
-//        String fname = "/Image-" + image_name+ ".jpg";
-//        File file = new File(myDir, fname);
-//        if (file.exists()) file.delete();
-//        Log.d(TAG, "LOAD " + myDir + fname);
-//        try {
-//            FileOutputStream out = new FileOutputStream(file);
-//            finalBitmap.compress(Bitmap.CompressFormat.JPEG, 90, out);
-//            out.flush();
-//            out.close();
-//            Log.d(TAG, "SaveImage ");
-//        } catch (Exception e) {
-//            e.printStackTrace();
-//            Log.d(TAG, "Error saveImage - " + e);
-//        }
-//    }
+    private Bitmap decodeLocalBitmap(String path) {
+        BitmapFactory.Options options = new BitmapFactory.Options();
+        options.inJustDecodeBounds = true; // 先获取原大小
+        Bitmap bitmap = BitmapFactory.decodeFile(path, options);
 
-    public static String getRealPathFromUri(Context context, Uri contentUri) {
+        int sampleSize = (int) (options.outHeight / (float) 200);
+        if (sampleSize <= 0) {
+            sampleSize = 1;
+        }
+        Log.d(TAG, "sampleSize is " + sampleSize);
+
+        options.inSampleSize = sampleSize;
+        options.inJustDecodeBounds = false; // 获取新的大小
+
+        bitmap = BitmapFactory.decodeFile(path, options);
+
+        return bitmap;
+    }
+
+    private String getRealPathFromUri(Context context, Uri contentUri) {
         Cursor cursor = null;
         try {
             String[] proj = { MediaStore.Images.Media.DATA };
